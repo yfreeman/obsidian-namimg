@@ -1,4 +1,6 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { asciiValueBetween, createNewFile, getChildren, getIdFromFilename, getParentFile, getSiblings, indexOfList, nextAsciiValue } from 'file_tools';
+import { App, Editor, EditorRange, MarkdownView, Modal, Notice, parseFrontMatterEntry, parseFrontMatterTags, parseYaml, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { textGetYamlRange } from 'text_tools';
 
 // Remember to rename these classes and interfaces!
 
@@ -10,7 +12,7 @@ const DEFAULT_SETTINGS: MyPluginSettings = {
 	mySetting: 'default'
 }
 
-export default class MyPlugin extends Plugin {
+export default class ZettleNaming extends Plugin {
 	settings: MyPluginSettings;
 
 	async onload() {
@@ -19,7 +21,7 @@ export default class MyPlugin extends Plugin {
 		// This creates an icon in the left ribbon.
 		const ribbonIconEl = this.addRibbonIcon('dice', 'Sample Plugin', (evt: MouseEvent) => {
 			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
+			new Notice('Hello There again!');
 		});
 		// Perform additional things with the ribbon
 		ribbonIconEl.addClass('my-plugin-ribbon-class');
@@ -38,11 +40,73 @@ export default class MyPlugin extends Plugin {
 		});
 		// This adds an editor command that can perform some operation on the current editor instance
 		this.addCommand({
-			id: 'sample-editor-command',
-			name: 'Sample editor command',
+			id: 'ztlnaming-create-sibling',
+			name: 'ZNaming - Create Sibling File',
 			editorCallback: (editor: Editor, view: MarkdownView) => {
-				console.log(editor.getSelection());
-				editor.replaceSelection('Sample Editor Command');
+				const selection = editor.getSelection().trim();
+				const file = this.app.workspace.getActiveFile();
+				let fmc = this.app.metadataCache.getFileCache(file)?.frontmatter;
+				const parentId = fmc.Parent;
+				const currentId = fmc.ID;
+
+				const siblings = getSiblings(file, this.app);
+				const siblingIndex = indexOfList(siblings, currentId);
+				let siblingId = '';
+
+				if (siblingIndex === (siblings.length - 1)) {
+					// it's the last one
+					siblingId = nextAsciiValue(currentId);
+				} else {
+					siblingId = asciiValueBetween(currentId, getIdFromFilename(siblings[siblingIndex + 1].name));
+				}
+
+				if (selection === "") {
+					new FileNameModal(this.app, (result) => {
+						if (result === undefined) return;
+						createNewFile(this.app, siblingId, result).then((filename: string) => {
+							// no need to replace text. nothing selected.
+						});
+					}).open();
+				} else {
+					createNewFile(this.app, siblingId, selection).then((filename: string) => {
+						const replacedText = `[[${filename}|${selection}]]`;
+						editor.replaceSelection(replacedText);
+					});
+				}
+			}
+		});
+		this.addCommand({
+			id: 'ztlnaming-create-child',
+			name: 'ZNaming - Create Child',
+			editorCallback: (editor: Editor, view: MarkdownView) => {
+				const selection = editor.getSelection().trim();
+				const file = this.app.workspace.getActiveFile();
+				let fmc = this.app.metadataCache.getFileCache(file)?.frontmatter;
+				const parentFile = getParentFile(file, this.app);
+				const childrenFiles = getChildren(parentFile.name, this.app);
+				let childId = '';
+				if (childrenFiles.length) {
+					// get last child
+					const lastChild = childrenFiles[childrenFiles.length - 1];
+					const lastChildFrontmatter = this.app.metadataCache.getFileCache(lastChild)?.frontmatter;
+					childId = nextAsciiValue(lastChildFrontmatter.ID);
+				} else {
+					childId = `${fmc.ID}.a`;
+				}
+
+				if (selection === "") {
+					new FileNameModal(this.app, (result) => {
+						if (result === undefined) return;
+						createNewFile(this.app, childId, result).then((filename: string) => {
+							// no need to replace text. nothing selected.
+						});
+					}).open();
+				} else {
+					createNewFile(this.app, childId, selection).then((filename: string) => {
+						const replacedText = `[[${filename}|${selection}]]`;
+						editor.replaceSelection(replacedText);
+					});
+				}
 			}
 		});
 		// This adds a complex command that can check whether the current state of the app allows execution of the command
@@ -107,10 +171,48 @@ class SampleModal extends Modal {
 	}
 }
 
-class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
 
-	constructor(app: App, plugin: MyPlugin) {
+class FileNameModal extends Modal {
+	result: string;
+	onSubmit: (result: string) => void;
+
+	constructor(app: App, onSubmit: (result: string) => void) {
+		super(app);
+		this.onSubmit = onSubmit;
+	}
+
+	onOpen() {
+		const {contentEl} = this;
+		contentEl.createEl("h1", { text: "Enter header" });
+
+		new Setting(contentEl)
+			.setName("Header")
+			.addText((text) =>
+				text.onChange((value) => {
+				this.result = value
+			}));
+
+		new Setting(contentEl)
+			.addButton((btn) =>
+				btn
+				.setButtonText("Submit")
+				.setCta()
+				.onClick(() => {
+					this.close();
+					this.onSubmit(this.result);
+			}));
+	}
+
+	onClose() {
+		const {contentEl} = this;
+		contentEl.empty();
+	}
+}
+
+class SampleSettingTab extends PluginSettingTab {
+	plugin: ZettleNaming;
+
+	constructor(app: App, plugin: ZettleNaming) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
