@@ -1,5 +1,5 @@
 {
-	"name": "obsidian-sample-plugin",
+	"name": "obsidian-namimg",
 	"version": "1.0.1",
 	"description": "My Preferred Naming Convention for Zettlekasten notes.",
 	"main": "main.js",
