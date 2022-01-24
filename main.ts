@@ -76,6 +76,36 @@ export default class ZettleNaming extends Plugin {
 			}
 		});
 		this.addCommand({
+			id: 'ztlnaming-create-sibling',
+			name: 'ZNaming - Create Last Sibling',
+			editorCallback: (editor: Editor, view: MarkdownView) => {
+				const selection = editor.getSelection().trim();
+				const file = this.app.workspace.getActiveFile();
+				let fmc = this.app.metadataCache.getFileCache(file)?.frontmatter;
+				const parentId = fmc.Parent;
+				const currentId = fmc.ID;
+
+				const siblings = getSiblings(file, this.app);
+				const lastSi = indexOfList(siblings, currentId);
+				const lastSiblingId = getIdFromFilename(siblings[siblings.length - 1].name)
+				let siblingId = nextAsciiValue(lastSiblingId);
+
+				if (selection === "") {
+					new FileNameModal(this.app, (result) => {
+						if (result === undefined) return;
+						createNewFile(this.app, siblingId, result).then((filename: string) => {
+							// no need to replace text. nothing selected.
+						});
+					}).open();
+				} else {
+					createNewFile(this.app, siblingId, selection).then((filename: string) => {
+						const replacedText = `[[${filename}|${selection}]]`;
+						editor.replaceSelection(replacedText);
+					});
+				}
+			}
+		});
+		this.addCommand({
 			id: 'ztlnaming-create-child',
 			name: 'ZNaming - Create Child',
 			editorCallback: (editor: Editor, view: MarkdownView) => {

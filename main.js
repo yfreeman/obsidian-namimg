@@ -212,6 +212,35 @@ var ZettleNaming = class extends import_obsidian2.Plugin {
         }
       });
       this.addCommand({
+        id: "ztlnaming-create-sibling",
+        name: "ZNaming - Create Last Sibling",
+        editorCallback: (editor, view) => {
+          var _a;
+          const selection = editor.getSelection().trim();
+          const file = this.app.workspace.getActiveFile();
+          let fmc = (_a = this.app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter;
+          const parentId = fmc.Parent;
+          const currentId = fmc.ID;
+          const siblings = getSiblings(file, this.app);
+          const lastSi = indexOfList(siblings, currentId);
+          const lastSiblingId = getIdFromFilename(siblings[siblings.length - 1].name);
+          let siblingId = nextAsciiValue(lastSiblingId);
+          if (selection === "") {
+            new FileNameModal(this.app, (result) => {
+              if (result === void 0)
+                return;
+              createNewFile(this.app, siblingId, result).then((filename) => {
+              });
+            }).open();
+          } else {
+            createNewFile(this.app, siblingId, selection).then((filename) => {
+              const replacedText = `[[${filename}|${selection}]]`;
+              editor.replaceSelection(replacedText);
+            });
+          }
+        }
+      });
+      this.addCommand({
         id: "ztlnaming-create-child",
         name: "ZNaming - Create Child",
         editorCallback: (editor, view) => {
