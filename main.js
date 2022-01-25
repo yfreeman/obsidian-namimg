@@ -212,7 +212,7 @@ var ZettleNaming = class extends import_obsidian2.Plugin {
         }
       });
       this.addCommand({
-        id: "ztlnaming-create-sibling",
+        id: "ztlnaming-create-last-sibling",
         name: "ZNaming - Create Last Sibling",
         editorCallback: (editor, view) => {
           var _a;

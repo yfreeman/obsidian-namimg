@@ -76,7 +76,7 @@ export default class ZettleNaming extends Plugin {
 			}
 		});
 		this.addCommand({
-			id: 'ztlnaming-create-sibling',
+			id: 'ztlnaming-create-last-sibling',
 			name: 'ZNaming - Create Last Sibling',
 			editorCallback: (editor: Editor, view: MarkdownView) => {
 				const selection = editor.getSelection().trim();
