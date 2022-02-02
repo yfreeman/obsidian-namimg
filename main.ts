@@ -1,5 +1,5 @@
-import { asciiValueBetween, createNewFile, getChildren, getIdFromFilename, getParentFile, getSiblings, indexOfList, nextAsciiValue } from 'file_tools';
-import { App, Editor, EditorRange, MarkdownView, Modal, Notice, parseFrontMatterEntry, parseFrontMatterTags, parseYaml, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { asciiValueBetween, createNewFile, getAllDecendants, getChildren, getFileById, getIdFromFilename, getParentFile, getSiblings, indexOfList, nextAsciiValue } from 'file_tools';
+import { App, Editor, EditorRange, MarkdownView, Modal, Notice, parseFrontMatterEntry, parseFrontMatterTags, parseYaml, Plugin, PluginSettingTab, Setting, MarkdownRenderer, PluginManifest, MarkdownPostProcessorContext } from 'obsidian';
 import { textGetYamlRange } from 'text_tools';
 
 // Remember to rename these classes and interfaces!
@@ -14,6 +14,12 @@ const DEFAULT_SETTINGS: MyPluginSettings = {
 
 export default class ZettleNaming extends Plugin {
 	settings: MyPluginSettings;
+	app: App;
+
+	constructor(app: App, manifest: PluginManifest) {
+		super(app, manifest);
+		this.app = app;
+	}
 
 	async onload() {
 		await this.loadSettings();
@@ -106,14 +112,20 @@ export default class ZettleNaming extends Plugin {
 			}
 		});
 		this.addCommand({
-			id: 'ztlnaming-create-child',
-			name: 'ZNaming - Create Child',
+			id: 'ztlnaming-create-last-child',
+			name: 'ZNaming - Create Last Child',
 			editorCallback: (editor: Editor, view: MarkdownView) => {
 				const selection = editor.getSelection().trim();
 				const file = this.app.workspace.getActiveFile();
 				let fmc = this.app.metadataCache.getFileCache(file)?.frontmatter;
-				const parentFile = getParentFile(file, this.app);
-				const childrenFiles = getChildren(parentFile.name, this.app);
+				let id = '';
+				if (fmc === undefined) {
+					id = getIdFromFilename(file.basename);
+				} else {
+					id = fmc.ID;
+				}
+				// const parentFile = getParentFile(file, this.app);
+				const childrenFiles = getChildren(id, this.app);
 				let childId = '';
 				if (childrenFiles.length) {
 					// get last child
@@ -170,6 +182,72 @@ export default class ZettleNaming extends Plugin {
 
 		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
 		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
+
+		this.registerMarkdownPostProcessor(((app: App) => {
+			return (element: HTMLElement, context: MarkdownPostProcessorContext) => {
+				const a = 1;
+				if(element.querySelectorAll("div pre.frontmatter").length) {
+					const file = getFileById(context.frontmatter.Parent, app);
+					if (!file) return;
+					// const markdown = await MarkdownRenderer.renderMarkdown('[[D.153.1.notetaking.a.b -- This is a sibling|This is a sibling]]', element, '', null);
+					const div = element.createDiv()
+					div.createEl('p', {text: 'Parent: '}).createEl('a', {
+						text: file.basename,
+						attr: {
+							'data-href': file.basename,
+							href: file.basename,
+							class: "internal-link",
+							target: "_blank",
+							rel: "noopener"
+						}
+					});
+					const decendants = getChildren(context.frontmatter.ID, app);
+					if (decendants.length) {
+						const firstChild = decendants[0];
+						div.createEl('p', {text: 'First Child: '}).createEl('a', {
+							text: firstChild.basename,
+							attr: {
+								'data-href': firstChild.basename,
+								href: firstChild.basename,
+								class: "internal-link",
+								target: "_blank",
+								rel: "noopener"
+							}
+						});
+					}
+					const siblings = getChildren(context.frontmatter.Parent, app);
+					if (siblings.length) {
+						const siblingIndex = indexOfList(siblings, context.frontmatter.ID);
+						if (siblingIndex > 0) {
+							const prevSibling = siblings[siblingIndex - 1];
+							div.createEl('p', {text: 'Previous Sibling: '}).createEl('a', {
+								text: prevSibling.basename,
+								attr: {
+									'data-href': prevSibling.basename,
+									href: prevSibling.basename,
+									class: "internal-link",
+									target: "_blank",
+									rel: "noopener"
+								}
+							});
+						}
+						if (!(siblingIndex > (siblings.length - 1))) {
+							const nextSibling = siblings[siblingIndex + 1];
+							div.createEl('p', {text: 'Next Sibling: '}).createEl('a', {
+								text: nextSibling.basename,
+								attr: {
+									'data-href': nextSibling.basename,
+									href: nextSibling.basename,
+									class: "internal-link",
+									target: "_blank",
+									rel: "noopener"
+								}
+							});
+						}
+					}
+				} 
+			};
+		})(this.app));;
 	}
 
 	onunload() {

@@ -44,6 +44,20 @@ export const nextAsciiValue = (current: string): string => {
     return stringArray.join('');
 };
 
+export const prevAsciiValue = (current: string): string => {
+    const stringArray = current.split('');
+    let prevValue = current.charCodeAt(stringArray.length -1) - 1;
+    if (prevValue === 48) {
+        stringArray.pop();
+        return stringArray.join('');
+    }
+    if (prevValue === 96) {
+        prevValue = 57;
+    }
+    stringArray[stringArray.length -1] = String.fromCharCode(prevValue);
+    return stringArray.join('');
+};
+
 // Given a string will return the next ascii character. starting form 0-9 and then a-z.
 // Once it reaches "z" we start the next one. "z1, z2, ...."
 export const asciiValueBetween = (first: string | null, second: string): string => {
@@ -62,7 +76,21 @@ export const asciiValueBetween = (first: string | null, second: string): string 
     const secondStringArray = second.split('');
     if (firstStringArray.length > secondStringArray.length) return nextAsciiValue(first);
     // start a new level of characters
-    firstStringArray[firstStringArray.length] = String.fromCharCode(48);
+    firstStringArray[firstStringArray.length] = String.fromCharCode(110);
+
+    if (firstStringArray.join('') === secondStringArray.join('') || firstStringArray.join('') > secondStringArray.join('')) {
+        let prevValue = prevAsciiValue(second);
+        const prevtSringArray = prevValue.split('');
+        if (prevValue === first || prevtSringArray[prevtSringArray.length -1] === "0") {
+            prevtSringArray[prevtSringArray.length] = String.fromCharCode(48) + String.fromCharCode(110);
+            return prevtSringArray.join('');
+        } else {
+            return prevValue;
+        }
+    }
+    if (firstStringArray.join('') > secondStringArray.join('')) {
+
+    }
 
     return firstStringArray.join('');
 };
@@ -72,6 +100,16 @@ export const getAllDecendants = (parentId: string | string, app: App): TFile[] =
     const childIdsString = `${parentId}.`;
     const decendants: TFile[] = allFiles.filter((file) => file.name.startsWith(childIdsString));
     return decendants;
+}
+
+export const getFileById = (id: string, app: App): TFile => {
+    const allFiles = app.vault.getMarkdownFiles();
+    const fileIdString = `${id}`;
+    const matches: TFile[] = allFiles.filter((file) => getIdFromFilename(file.name) === fileIdString);
+    if (matches.length) {
+        return matches[0];
+    }
+    return null;
 }
 
 export const getChildren = (parentId: string, app: App): TFile[] => {

@@ -57,17 +57,6 @@ var import_obsidian = __toModule(require("obsidian"));
 var getIdFromFilename = (filename) => {
   return filename.split("--")[0].trim();
 };
-var getParentFile = (file, app) => {
-  var _a;
-  let fmc = (_a = app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter;
-  const parentId = fmc.Parent;
-  const allFiles = app.vault.getMarkdownFiles();
-  const matchingFiles = allFiles.filter((file2) => file2.name.startsWith(parentId));
-  const fileWithIdArr = matchingFiles.filter((file2) => getIdFromFilename(file2.name) === parentId);
-  if (fileWithIdArr.length) {
-    return fileWithIdArr[0];
-  }
-};
 var getSiblings = (file, app) => {
   var _a;
   let fmc = (_a = app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter;
@@ -90,6 +79,19 @@ var nextAsciiValue = (current) => {
     stringArray[stringArray.length] = String.fromCharCode(48);
   return stringArray.join("");
 };
+var prevAsciiValue = (current) => {
+  const stringArray = current.split("");
+  let prevValue = current.charCodeAt(stringArray.length - 1) - 1;
+  if (prevValue === 48) {
+    stringArray.pop();
+    return stringArray.join("");
+  }
+  if (prevValue === 96) {
+    prevValue = 57;
+  }
+  stringArray[stringArray.length - 1] = String.fromCharCode(prevValue);
+  return stringArray.join("");
+};
 var asciiValueBetween = (first, second) => {
   if (first === null) {
     const secondStringArray2 = second.split("");
@@ -105,7 +107,19 @@ var asciiValueBetween = (first, second) => {
   const secondStringArray = second.split("");
   if (firstStringArray.length > secondStringArray.length)
     return nextAsciiValue(first);
-  firstStringArray[firstStringArray.length] = String.fromCharCode(48);
+  firstStringArray[firstStringArray.length] = String.fromCharCode(110);
+  if (firstStringArray.join("") === secondStringArray.join("") || firstStringArray.join("") > secondStringArray.join("")) {
+    let prevValue = prevAsciiValue(second);
+    const prevtSringArray = prevValue.split("");
+    if (prevValue === first || prevtSringArray[prevtSringArray.length - 1] === "0") {
+      prevtSringArray[prevtSringArray.length] = String.fromCharCode(48) + String.fromCharCode(110);
+      return prevtSringArray.join("");
+    } else {
+      return prevValue;
+    }
+  }
+  if (firstStringArray.join("") > secondStringArray.join("")) {
+  }
   return firstStringArray.join("");
 };
 var getAllDecendants = (parentId, app) => {
@@ -113,6 +127,15 @@ var getAllDecendants = (parentId, app) => {
   const childIdsString = `${parentId}.`;
   const decendants = allFiles.filter((file) => file.name.startsWith(childIdsString));
   return decendants;
+};
+var getFileById = (id, app) => {
+  const allFiles = app.vault.getMarkdownFiles();
+  const fileIdString = `${id}`;
+  const matches = allFiles.filter((file) => getIdFromFilename(file.name) === fileIdString);
+  if (matches.length) {
+    return matches[0];
+  }
+  return null;
 };
 var getChildren = (parentId, app) => {
   const decendents = getAllDecendants(parentId, app);
@@ -162,6 +185,10 @@ var DEFAULT_SETTINGS = {
   mySetting: "default"
 };
 var ZettleNaming = class extends import_obsidian2.Plugin {
+  constructor(app, manifest) {
+    super(app, manifest);
+    this.app = app;
+  }
   onload() {
     return __async(this, null, function* () {
       yield this.loadSettings();
@@ -241,15 +268,20 @@ var ZettleNaming = class extends import_obsidian2.Plugin {
         }
       });
       this.addCommand({
-        id: "ztlnaming-create-child",
-        name: "ZNaming - Create Child",
+        id: "ztlnaming-create-last-child",
+        name: "ZNaming - Create Last Child",
         editorCallback: (editor, view) => {
           var _a, _b;
           const selection = editor.getSelection().trim();
           const file = this.app.workspace.getActiveFile();
           let fmc = (_a = this.app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter;
-          const parentFile = getParentFile(file, this.app);
-          const childrenFiles = getChildren(parentFile.name, this.app);
+          let id = "";
+          if (fmc === void 0) {
+            id = getIdFromFilename(file.basename);
+          } else {
+            id = fmc.ID;
+          }
+          const childrenFiles = getChildren(id, this.app);
           let childId = "";
           if (childrenFiles.length) {
             const lastChild = childrenFiles[childrenFiles.length - 1];
@@ -291,6 +323,72 @@ var ZettleNaming = class extends import_obsidian2.Plugin {
         console.log("click", evt);
       });
       this.registerInterval(window.setInterval(() => console.log("setInterval"), 5 * 60 * 1e3));
+      this.registerMarkdownPostProcessor(((app) => {
+        return (element, context) => {
+          const a = 1;
+          if (element.querySelectorAll("div pre.frontmatter").length) {
+            const file = getFileById(context.frontmatter.Parent, app);
+            if (!file)
+              return;
+            const div = element.createDiv();
+            div.createEl("p", { text: "Parent: " }).createEl("a", {
+              text: file.basename,
+              attr: {
+                "data-href": file.basename,
+                href: file.basename,
+                class: "internal-link",
+                target: "_blank",
+                rel: "noopener"
+              }
+            });
+            const decendants = getChildren(context.frontmatter.ID, app);
+            if (decendants.length) {
+              const firstChild = decendants[0];
+              div.createEl("p", { text: "First Child: " }).createEl("a", {
+                text: firstChild.basename,
+                attr: {
+                  "data-href": firstChild.basename,
+                  href: firstChild.basename,
+                  class: "internal-link",
+                  target: "_blank",
+                  rel: "noopener"
+                }
+              });
+            }
+            const siblings = getChildren(context.frontmatter.Parent, app);
+            if (siblings.length) {
+              const siblingIndex = indexOfList(siblings, context.frontmatter.ID);
+              if (siblingIndex > 0) {
+                const prevSibling = siblings[siblingIndex - 1];
+                div.createEl("p", { text: "Previous Sibling: " }).createEl("a", {
+                  text: prevSibling.basename,
+                  attr: {
+                    "data-href": prevSibling.basename,
+                    href: prevSibling.basename,
+                    class: "internal-link",
+                    target: "_blank",
+                    rel: "noopener"
+                  }
+                });
+              }
+              if (!(siblingIndex > siblings.length - 1)) {
+                const nextSibling = siblings[siblingIndex + 1];
+                div.createEl("p", { text: "Next Sibling: " }).createEl("a", {
+                  text: nextSibling.basename,
+                  attr: {
+                    "data-href": nextSibling.basename,
+                    href: nextSibling.basename,
+                    class: "internal-link",
+                    target: "_blank",
+                    rel: "noopener"
+                  }
+                });
+              }
+            }
+          }
+        };
+      })(this.app));
+      ;
     });
   }
   onunload() {
