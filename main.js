@@ -91,6 +91,7 @@ var import_obsidian = __toModule(require("obsidian"));
 var getIdFromFilename = (filename) => {
   return filename.split("--")[0].trim();
 };
+<<<<<<< HEAD
 var getTitleFromFilename = (filename) => {
   return filename.split("--")[1].trim();
 };
@@ -99,6 +100,8 @@ var getFileByFilePath = (app, filepath) => {
   const file = files.find((file2) => file2.path === filepath);
   return file;
 };
+=======
+>>>>>>> 507b5fbd00d65f0a10acfa92c8e8976124572835
 var getSiblings = (file, app) => {
   var _a;
   let fmc = (_a = app.metadataCache.getFileCache(file)) == null ? void 0 : _a.frontmatter;
@@ -410,9 +413,12 @@ ${selectedStrippedParen}
       this.addCommand({
         id: "ztlnaming-create-last-child",
         name: "ZNaming - Create Last Child",
+<<<<<<< HEAD
         callback: () => {
           console.log("Hey, you!");
         },
+=======
+>>>>>>> 507b5fbd00d65f0a10acfa92c8e8976124572835
         editorCallback: (editor, view) => {
           var _a, _b;
           const selection = editor.getSelection().trim();
